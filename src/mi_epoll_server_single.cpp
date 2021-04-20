@@ -16,7 +16,7 @@
 #include <iostream>
 #include <sstream>
 #include <sys/epoll.h>
-#include <netinet/tcp.h>
+#include<netinet/tcp.h>
 
 #include <boost/thread/thread.hpp>
 #include <boost/thread/mutex.hpp>
@@ -127,11 +127,6 @@ void EpollServerSingle::run() {
                 } else {
                     addfd(_efd, connfd);
                 }
-            } else if (events[i].events & EPOLLHUP || events[i].events & EPOLLERR || events[i].events & EPOLLRDHUP) {
-                std::cout << "catch client sock:" << sockfd << " close\n";
-                close(sockfd);
-                removefd(_efd, sockfd);
-
             } else if (events[i].events & EPOLLIN) {
                 std::cout << "catch write sock\n";
                 BufferHeader header;
@@ -207,6 +202,11 @@ void EpollServerSingle::run() {
                 std::string str(data_buffer, header.buffer_size);
                 std::cout << "read client: " << str << std::endl;
                 delete [] data_buffer;
+            } else if (events[i].events & EPOLLHUP || events[i].events & EPOLLERR || events[i].events & EPOLLRDHUP) {
+                std::cout << "catch client sock:" << sockfd << " close\n";
+                close(sockfd);
+                removefd(_efd, sockfd);
+
             } else {
                 std::cout << "something else happended\n";
             }

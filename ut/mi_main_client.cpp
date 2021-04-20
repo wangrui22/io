@@ -32,22 +32,24 @@ int main(int argc, char* argv[]) {
     std::string ip(argv[1]);
     int port(atoi(argv[2]));
 
-    // Client client;
-    // client.set_host(ip, port);
-    // client.run();
+    Client client;
+    client.set_host(ip, port);
+    client.run();
 
-    // return 0;
+    sleep(2);
 
-    std::vector<boost::thread> ths;
-    for (int i=0; i<THREAD_NUM; ++i) {
-        ths.push_back(boost::thread(test_client, i, ip, port));
-    }
+    return 0;
 
-    for (int i=0; i<THREAD_NUM; ++i) {
-        if (ths[i].joinable()) {
-            ths[i].join();
-        }
-    }
+    // std::vector<boost::thread> ths;
+    // for (int i=0; i<THREAD_NUM; ++i) {
+    //     ths.push_back(boost::thread(test_client, i, ip, port));
+    // }
+
+    // for (int i=0; i<THREAD_NUM; ++i) {
+    //     if (ths[i].joinable()) {
+    //         ths[i].join();
+    //     }
+    // }
 
     
 

@@ -11,6 +11,7 @@
 #include <netinet/in.h>
 
 #include <iostream>
+#include <sstream>
 
 #include "mi_rpc_common.h"
 
@@ -49,16 +50,23 @@ void Client::run() {
 
     std::cerr << "connect server success >>>>>>\n";
 
-    std::string str("hello");   
     BufferHeader header;
-    header.buffer_size = str.length();
-
-    write(_sock_fd, &header, sizeof(header));
-    write(_sock_fd, str.c_str(), str.length());
+    // std::string str("hello");
+    // header.buffer_size = str.length()+1;
     
-    //sleep(2);
+    for (int i=0; i<1000 ; ++i) {
+        std::stringstream ss;
+        ss << "hello" << i;
+        const std::string str = ss.str();
+        header.buffer_size = str.length();
+        write(_sock_fd, &header, sizeof(header));
+        write(_sock_fd, str.c_str(), str.length());
+    }
+    
+    
+    //sleep(10);
 
-    //shutdown(_sock_fd, SHUT_RDWR);
+    shutdown(_sock_fd, SHUT_RDWR);
     close(_sock_fd);
 
     std::cout << "close client\n";
