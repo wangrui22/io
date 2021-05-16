@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <iostream>
 #include <boost/thread/thread.hpp>
+#include <boost/log/trivial.hpp>
 
 EpollServer* server = nullptr;
 
@@ -24,7 +25,7 @@ static void echo() {
 
 int main(int argc, char* argv[]) {
     if (argc != 2) {
-        std::cout << "please input server's ip\n";
+        BOOST_LOG_TRIVIAL(info) << "please input server's ip";
         return -1;
     }
 

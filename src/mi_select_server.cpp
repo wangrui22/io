@@ -31,7 +31,7 @@ void SelectServer::listen(int port) {
 void SelectServer::run() {
     _sock_fd = socket(PF_INET, SOCK_STREAM, 0);
     if (_sock_fd < 0) {
-        std::cerr << "create SelectServer's socket failed\n";
+        BOOST_LOG_TRIVIAL(error) <<"create SelectServer's socket failed";
         return;
     }
 
@@ -42,24 +42,24 @@ void SelectServer::run() {
 
     int ret = bind(_sock_fd, (sockaddr*)(&addr), sizeof(addr));
     if (ret < 0) {
-        std::cerr << "SelectServer bind failed\n";
+        BOOST_LOG_TRIVIAL(error) <<"SelectServer bind failed";
         return;
     }
 
     ret = ::listen(_sock_fd, 100);
     if (ret < 0) {
-        std::cerr << "SelectServer listen failed\n";
+        BOOST_LOG_TRIVIAL(error) <<"SelectServer listen failed";
         return;
     }
 
 
-    std::cout << "SelectServer running >>>>>>\n";
+    BOOST_LOG_TRIVIAL(info) << "SelectServer running >>>>>>";
 
     sockaddr_in conn_addr;    
     socklen_t conn_addr_len = sizeof(sockaddr_in);
     int connfd = accept(_sock_fd, (sockaddr*)(&conn_addr), &conn_addr_len);
     if (connfd < 0) {
-        std::cerr << "SelectServer accept failed\n";
+        BOOST_LOG_TRIVIAL(error) <<"SelectServer accept failed";
         return;
     }   
 
@@ -77,7 +77,7 @@ void SelectServer::run() {
 
         ret = select(connfd+1, &read_fds, NULL, &exception_fds, NULL);
         if (ret < 0) {
-            std::cout << "selection failed.\n";
+            BOOST_LOG_TRIVIAL(info) << "selection failed.";
             break;
         }
 
@@ -85,19 +85,19 @@ void SelectServer::run() {
             BufferHeader header;
             ret = read(connfd, &header, sizeof(header));
             if (ret != sizeof(header)) {
-                std::cout << "read client: " << ret << " err: " << errno <<  std::endl; 
+                BOOST_LOG_TRIVIAL(info) << "read client: " << ret << " err: " << errno <<  std::endl; 
                 break;
             }
             char* data_buf = new char[header.buffer_size];
             read(connfd, data_buf, header.buffer_size);
 
             std::string str(data_buf, header.buffer_size);
-            std::cout << "read client: " << str << std::endl;
+            BOOST_LOG_TRIVIAL(info) << "read client: " << str;
             delete [] data_buf;
             data_buf = nullptr;
         } else if (FD_ISSET(connfd, &exception_fds)) {
             //异常事件的
-            std::cout << "oob data." << std::endl;
+            BOOST_LOG_TRIVIAL(info) << "oob data.";
             break;
         }
     }
@@ -108,5 +108,5 @@ void SelectServer::run() {
     close(connfd);
     close(_sock_fd);
 
-    std::cout << "SelectServer shutdown >>>>>>\n";
+    BOOST_LOG_TRIVIAL(info) << "SelectServer shutdown >>>>>>";
 }

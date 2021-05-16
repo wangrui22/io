@@ -55,7 +55,7 @@ void addfd(int efd, int fd) {
 }
 
 void removefd(int efd, int fd) {
-    std::cout << "<><><<><><><><><><><><> remove fd: " << fd << "\n";
+    BOOST_LOG_TRIVIAL(info) << "<><><<><><><><><><><><> remove fd: " << fd;
     epoll_ctl(efd, EPOLL_CTL_DEL, fd, NULL);
 }
 
@@ -73,10 +73,10 @@ void EpollServerSingle::listen(int port) {
 void EpollServerSingle::run() {
     _sock_fd = socket(PF_INET, SOCK_STREAM, 0);
     if (_sock_fd < 0) {
-        std::cerr << "create EpollServerSingle's socket failed\n";
+        BOOST_LOG_TRIVIAL(error) <<"create EpollServerSingle's socket failed";
         return;
     }
-    std::cout << "server sock: " << _sock_fd << std::endl;
+    BOOST_LOG_TRIVIAL(info) << "server sock: " << _sock_fd;
 
     sockaddr_in addr;
     memset(&addr, 0, sizeof(addr));
@@ -85,23 +85,23 @@ void EpollServerSingle::run() {
 
     int ret = bind(_sock_fd, (sockaddr*)(&addr), sizeof(addr));
     if (ret < 0) {
-        std::cerr << "EpollServerSingle bind failed\n";
+        BOOST_LOG_TRIVIAL(error) <<"EpollServerSingle bind failed";
         return;
     }
 
     ret = ::listen(_sock_fd, 100);
     if (ret < 0) {
-        std::cerr << "EpollServerSingle listen failed\n";
+        BOOST_LOG_TRIVIAL(error) <<"EpollServerSingle listen failed";
         return;
     }
 
 
-    std::cout << "EpollServerSingle running >>>>>>\n";
+    BOOST_LOG_TRIVIAL(info) << "EpollServerSingle running >>>>>>";
 
     epoll_event events[MAX_EVENT_NUMBER];
     _efd = epoll_create(5);
     if (_efd < 0) {
-        std::cout << "create EpollServerSingle's efd failed.\n";
+        BOOST_LOG_TRIVIAL(info) << "create EpollServerSingle's efd failed.";
         return;
     }
 
@@ -110,30 +110,30 @@ void EpollServerSingle::run() {
     while(1) {
         int ret = epoll_wait(_efd, events,MAX_EVENT_NUMBER, -1);
         if (ret<0) {
-            std::cout << "epoll wait falied: " << ret << ", err: " << errno << std::endl;
+            BOOST_LOG_TRIVIAL(info) << "epoll wait falied: " << ret << ", err: " << errno;
             break;
         }
-        std::cout << "epoll wait: " << ret << std::endl;
+        BOOST_LOG_TRIVIAL(info) << "epoll wait: " << ret;
         for (int i=0; i<ret; ++i) {
             int sockfd = events[i].data.fd;
-            std::cout << "sock: " << sockfd <<  " event: " << events[i].events << std::endl;
+            BOOST_LOG_TRIVIAL(info) << "sock: " << sockfd <<  " event: " << events[i].events;
             
             if (sockfd == _sock_fd) {
                 sockaddr_in client_address;
                 socklen_t client_address_ln = sizeof(client_address);
                 int connfd = accept(_sock_fd, (sockaddr*)&client_address, &client_address_ln);
                 if (connfd < 0) {
-                    std::cout << "accept client failed: " << connfd << ", err: " << errno << std::endl; 
+                    BOOST_LOG_TRIVIAL(info) << "accept client failed: " << connfd << ", err: " << errno; 
                 } else {
                     addfd(_efd, connfd);
                 }
             } else if (events[i].events & EPOLLHUP || events[i].events & EPOLLERR || events[i].events & EPOLLRDHUP) {
-                std::cout << "catch client sock:" << sockfd << " close\n";
+                BOOST_LOG_TRIVIAL(info) << "catch client sock:" << sockfd << " close";
                 close(sockfd);
                 removefd(_efd, sockfd);
 
             } else if (events[i].events & EPOLLIN) {
-                std::cout << "catch write sock\n";
+                BOOST_LOG_TRIVIAL(info) << "catch write sock";
                 BufferHeader header;
                 char* data_buffer = nullptr;
                 
@@ -147,27 +147,27 @@ void EpollServerSingle::run() {
                         continue;
                     } else if (cur_size < 0 &&  (errno == EAGAIN || errno == EWOULDBLOCK)) {
                         //非阻塞IO，遇到这种情况表示数据传输完成
-                        std::cout << "break here 1\n";
+                        BOOST_LOG_TRIVIAL(info) << "break here 1";
                         break;
                     } else if (cur_size == 0) {
-                        std::cout << "recv ret 0 close\n";
+                        BOOST_LOG_TRIVIAL(info) << "recv ret 0 close";
                         close(sockfd);
                         removefd(_efd, sockfd);
                         break;
                     } else if (cur_size < 0) {
-                        std::cout << "recv ret err: " << errno << "\n";
+                        BOOST_LOG_TRIVIAL(info) << "recv ret err: " << errno;
                         close(sockfd);
                         removefd(_efd, sockfd);
                         break;
                     }
                     accum_size += cur_size;
                     try_size -= cur_size;
-                    std::cout << "here: " <<accum_size <<  "\n";
+                    BOOST_LOG_TRIVIAL(info) << "here: " <<accum_size <<  "";
                 }
                 if (cur_size <=0) {
                     break;
                 }
-                std::cout << "buffer size: " << header.buffer_size << std::endl;
+                BOOST_LOG_TRIVIAL(info) << "buffer size: " << header.buffer_size;
 
                 
                 cur_size = 0;
@@ -181,15 +181,15 @@ void EpollServerSingle::run() {
                         continue;
                     } else if (cur_size < 0 &&  (errno == EAGAIN || errno == EWOULDBLOCK)) {
                         //非阻塞IO，遇到这种情况表示数据传输完成
-                        std::cout << "break here 2\n";
+                        BOOST_LOG_TRIVIAL(info) << "break here 2";
                         break;
                     } else if (cur_size == 0) {
-                        std::cout << "recv ret 0 close\n";
+                        BOOST_LOG_TRIVIAL(info) << "recv ret 0 close";
                         close(sockfd);
                         removefd(_efd, sockfd);
                         break;
                     } else if (cur_size < 0) {
-                        std::cout << "recv ret err: " << errno << "\n";
+                        BOOST_LOG_TRIVIAL(info) << "recv ret err: " << errno;
                         close(sockfd);
                         removefd(_efd, sockfd);
                         break;
@@ -205,15 +205,15 @@ void EpollServerSingle::run() {
                 //完整的pkg
 
                 std::string str(data_buffer, header.buffer_size);
-                std::cout << "read client: " << str << std::endl;
+                BOOST_LOG_TRIVIAL(info) << "read client: " << str;
                 delete [] data_buffer;
             } else {
-                std::cout << "something else happended\n";
+                BOOST_LOG_TRIVIAL(info) << "something else happended";
             }
         }
     }
 
 
 
-    std::cout << "EpollServerSingle shutdown >>>>>>\n";
+    BOOST_LOG_TRIVIAL(info) << "EpollServerSingle shutdown >>>>>>";
 }

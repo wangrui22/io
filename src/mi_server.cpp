@@ -30,7 +30,7 @@ void Server::listen(int port) {
 void Server::run() {
     _sock_fd = socket(PF_INET, SOCK_STREAM, 0);
     if (_sock_fd < 0) {
-        std::cerr << "create server's socket failed\n";
+        BOOST_LOG_TRIVIAL(error) <<"create server's socket failed";
         return;
     }
 
@@ -41,24 +41,24 @@ void Server::run() {
 
     int ret = bind(_sock_fd, (sockaddr*)(&addr), sizeof(addr));
     if (ret < 0) {
-        std::cerr << "server bind failed\n";
+        BOOST_LOG_TRIVIAL(error) <<"server bind failed";
         return;
     }
 
     ret = ::listen(_sock_fd, 100);
     if (ret < 0) {
-        std::cerr << "server listen failed\n";
+        BOOST_LOG_TRIVIAL(error) <<"server listen failed";
         return;
     }
 
 
-    std::cout << "server running >>>>>>\n";
+    BOOST_LOG_TRIVIAL(info) << "server running >>>>>>";
 
     sockaddr_in conn_addr;    
     socklen_t conn_addr_len = sizeof(sockaddr_in);
     int connfd = accept(_sock_fd, (sockaddr*)(&conn_addr), &conn_addr_len);
     if (connfd < 0) {
-        std::cerr << "server accept failed\n";
+        BOOST_LOG_TRIVIAL(error) <<"server accept failed";
         return;
     }   
 
@@ -68,12 +68,12 @@ void Server::run() {
     read(connfd, buf, header.buffer_size);
 
     std::string str(buf, header.buffer_size);
-    std::cout << "read client: " << str << std::endl;
+    BOOST_LOG_TRIVIAL(info) << "read client: " << str;
     delete [] buf;
     buf = nullptr;
 
     close(connfd);
     close(_sock_fd);
 
-    std::cout << "server shutdown >>>>>>\n";
+    BOOST_LOG_TRIVIAL(info) << "server shutdown >>>>>>";
 }

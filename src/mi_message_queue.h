@@ -10,6 +10,7 @@
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/condition.hpp>
 #include <boost/noncopyable.hpp>
+#include <boost/log/trivial.hpp>
 
 template<class T>
 class Queue {
@@ -116,7 +117,7 @@ public:
         wait_to_push(locker , _DEFAULT_TIME_WAIT_LIMIT);
 
         if (!is_activated()) {
-            std::cerr << "message queue is not activated.";
+            BOOST_LOG_TRIVIAL(error) <<"message queue is not activated.";
             abort();
         }
 

@@ -4,6 +4,7 @@
 #include <iostream>
 
 #include <boost/thread/thread.hpp>
+#include <boost/log/trivial.hpp>
 
 #define CLIENT_NUM 2048
 #define THREAD_NUM 32
@@ -13,7 +14,7 @@ static void test_client(int idx, const std::string& ip, int port) {
     for (int i=0; i<CLIENT_NUM; ++i) {
         {   
             boost::mutex::scoped_lock locker(MUTEX);
-            std::cout << "run :" << idx << " idx: " << i << std::endl;
+            BOOST_LOG_TRIVIAL(info) << "run :" << idx << " idx: " << i;
         }
         
         Client client;
@@ -25,7 +26,7 @@ static void test_client(int idx, const std::string& ip, int port) {
 
 int main(int argc, char* argv[]) {
     if (argc != 3) {
-        std::cout << "please input server's ip port\n";
+        BOOST_LOG_TRIVIAL(info) << "please input server's ip port";
         return -1;
     }
 

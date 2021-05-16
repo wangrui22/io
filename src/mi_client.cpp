@@ -30,7 +30,7 @@ void Client::set_host(const std::string& ip, const int port) {
 void Client::run() {
     _sock_fd = socket(PF_INET, SOCK_STREAM, 0);
     if (_sock_fd < 0) {
-        std::cerr << "create client's socket failed\n";
+        BOOST_LOG_TRIVIAL(error) <<"create client's socket failed";
         return;
     }
 
@@ -43,11 +43,11 @@ void Client::run() {
     socklen_t addr_len = sizeof(addr);
     int ret = connect(_sock_fd, (sockaddr*)(&addr), addr_len);
     if (ret < 0) {
-        std::cerr << "connect server failed: " << errno << "\n";
+        BOOST_LOG_TRIVIAL(error) <<"connect server failed: " << errno;
         return;
     } 
 
-    std::cerr << "connect server success >>>>>>\n";
+    BOOST_LOG_TRIVIAL(error) <<"connect server success >>>>>>";
 
     std::string str("hello");   
     BufferHeader header;
@@ -61,6 +61,6 @@ void Client::run() {
     //shutdown(_sock_fd, SHUT_RDWR);
     close(_sock_fd);
 
-    std::cout << "close client\n";
+    BOOST_LOG_TRIVIAL(info) << "close client";
     
 }

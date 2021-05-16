@@ -1,6 +1,8 @@
 #ifndef MI_RPC_COMMON_H
 #define MI_RPC_COMMON_H
 
+#include<boost/log/trivial.hpp>
+
 
 struct BufferHeader {
     int src_socket;
@@ -27,5 +29,31 @@ struct RPCPackage {
     }
 };
 
+
+//UDS
+struct IPCDataHeader { //32 byte
+    unsigned int sender;//sender pid or socket id ... 
+    unsigned int receiver;//receiver pid or socket id ... (should be set when recv)
+    unsigned int msg_id;//message ID : thus command ID
+    unsigned int cell_id;//message info : client cell ID, client socket time 
+    unsigned int op_id;//message info : client operation ID
+    unsigned int reserved0;//message info : reserved sequenced msg end tag(EG: send n slice dicom series. 0~n-2:0 n-1:1)
+    unsigned int reserved1;//message info : reserved
+    unsigned int data_len;//data length
+
+    IPCDataHeader():
+        sender(0), receiver(0), msg_id(0), cell_id(0),
+        op_id(0), reserved0(0), reserved1(0), data_len(0) {
+    }
+};
+
+class IPCDataRecvHandler {
+public:
+    IPCDataRecvHandler() {};
+    virtual ~IPCDataRecvHandler() {};
+    virtual int handle(const IPCDataHeader& header , char* buffer) = 0;
+protected:
+private:
+};
 
 #endif
