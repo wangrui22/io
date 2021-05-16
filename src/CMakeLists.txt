@@ -11,4 +11,4 @@ find_package(Boost COMPONENTS system filesystem log thread REQUIRED)
 
 add_library(libsocket ${SRC} )
 
-target_link_libraries(libsocket ${Boost_LIBRARIES})
+target_link_libraries(libsocket uuid ${Boost_LIBRARIES})
