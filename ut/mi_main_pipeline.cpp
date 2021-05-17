@@ -5,7 +5,11 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/mman.h>
+#include <sys/syscall.h>
+#include <sys/types.h>
+#include <linux/memfd.h>
 #include <fcntl.h>
+
 #include <iostream>
 #include <boost/thread/thread.hpp>
 #include <boost/log/trivial.hpp>
@@ -43,13 +47,23 @@ int main(int argc, char* argv[]) {
     BOOST_LOG_TRIVIAL(info) << "pipeline begin. count : " << pipe_count;
 
     const size_t len = 16*sizeof(int);
-    const int fd_shm = open("/tmp/shtest", O_RDWR);
-    if (fd_shm < 0) {
-        BOOST_LOG_TRIVIAL(error) << "open file failed.";
+
+    const int fd_shm = syscall(SYS_memfd_create,"pipeline", MFD_ALLOW_SEALING);
+    if (-1 == fd_shm) {
+        BOOST_LOG_TRIVIAL(error) << "create memfd failed.";
         return -1;
     }
+    
+
+    // const int fd_shm = open("/tmp/shtest", O_RDWR);
+    // if (fd_shm < 0) {
+    //     BOOST_LOG_TRIVIAL(error) << "open file failed.";
+    //     return -1;
+    // }
     lseek(fd_shm, FILE_LENGTH, SEEK_SET);
     write(fd_shm, " ", 1);
+
+
     int offset_shm = 0;
     int* ptr = (int*)mmap(NULL, len, PROT_READ|PROT_WRITE, MAP_SHARED, fd_shm, offset_shm);
     if (MAP_FAILED == ptr) {
