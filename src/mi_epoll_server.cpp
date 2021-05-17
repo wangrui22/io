@@ -16,7 +16,7 @@
 #include <iostream>
 #include <sstream>
 #include <sys/epoll.h>
-#include<netinet/tcp.h>
+#include <netinet/tcp.h>
 
 #include <boost/thread/thread.hpp>
 #include <boost/thread/mutex.hpp>
@@ -27,6 +27,7 @@
 
 #define MAX_EVENT_NUMBER 4096
 #define MAX_THREAD 7
+#define EAGAIN_WAIT 10000
 
 static boost::mutex _MUTEX;
 
@@ -94,6 +95,7 @@ void EpollServer::recv_worker(int idx) {
     const int efd = _worker_efd[idx];
     epoll_event events[MAX_EVENT_NUMBER];
     addfd(efd, _sock_inter);
+    int recv_idx = 0;
     while (1) {
         int ret = epoll_wait(efd, events,MAX_EVENT_NUMBER, 30);
         if (ret < 0) {
@@ -111,11 +113,9 @@ void EpollServer::recv_worker(int idx) {
                 uint64_t time_val = 10;
                 read(sockfd, &time_val, 8);
                 
-            } else if (events[i].events & EPOLLHUP || events[i].events & EPOLLERR || events[i].events & EPOLLRDHUP) {
-                BOOST_LOG_TRIVIAL(info) << "recv peer sock:" << sockfd << " close";
-                remove_client(efd, sockfd);
             } else if (events[i].events & EPOLLIN) {
-                BOOST_LOG_TRIVIAL(info) << "worker catch sock:" << sockfd << " recv ";
+                recv_idx++;
+                std::cout << "worker catch sock:" << sockfd << " recv: " <<  recv_idx << " \n";
                 BufferHeader header;
                 char* data_buffer = nullptr;
                 
@@ -128,11 +128,11 @@ void EpollServer::recv_worker(int idx) {
                     if (cur_size < 0 && errno == EINTR) {
                         continue;
                     } else if (cur_size < 0 &&  (errno == EAGAIN || errno == EWOULDBLOCK)) {
-                        //非阻塞IO，遇到这种情况表示数据传输完成
-                        BOOST_LOG_TRIVIAL(info) << "break here 1";
-                        break;
+                        //非阻塞IO，遇到这种情况需要循环再传输
+                        usleep(EAGAIN_WAIT);
+                        continue;
                     } else if (cur_size == 0) {
-                        BOOST_LOG_TRIVIAL(info) << "recv ret 0 close";
+                        std::cout << "recv header ret 0 close\n";
                         remove_client(efd, sockfd);
                         break;
                     } else if (cur_size < 0) {
@@ -159,11 +159,11 @@ void EpollServer::recv_worker(int idx) {
                     if (cur_size < 0 && errno == EINTR) {
                         continue;
                     } else if (cur_size < 0 &&  (errno == EAGAIN || errno == EWOULDBLOCK)) {
-                        //非阻塞IO，遇到这种情况表示数据传输完成
-                        BOOST_LOG_TRIVIAL(info) << "break here 2";
-                        break;
+                        //非阻塞IO，遇到这种情况需要循环再传输
+                        usleep(EAGAIN_WAIT);
+                        continue;
                     } else if (cur_size == 0) {
-                        BOOST_LOG_TRIVIAL(info) << "recv ret 0 close";
+                        std::cout << "recv data ret 0 close\n";
                         remove_client(efd, sockfd);
                         break;
                     } else if (cur_size < 0) {
@@ -185,6 +185,11 @@ void EpollServer::recv_worker(int idx) {
                 BOOST_LOG_TRIVIAL(info) << "read client: " << str;
                 delete [] data_buffer;
 
+            }
+            // 这里注意对端的sock关闭是伴随 EPOLLHUP 和 EPOLLIN，即最后的数据包需要读完，因此下面代码要放在 EPOLLIN 的后面， 不过这样的化基本上不会触发到下面的逻辑
+            else if (events[i].events & EPOLLHUP || events[i].events & EPOLLERR || events[i].events & EPOLLRDHUP) {
+                std::cout << "recv peer sock:" << sockfd << " close\n";
+                remove_client(efd, sockfd);
             } else {
                 BOOST_LOG_TRIVIAL(info) << "something else happended";
             }
@@ -285,7 +290,9 @@ void EpollServer::run() {
             if (sockfd == _sock_fd) {
                 sockaddr_in client_address;
                 socklen_t client_address_ln = sizeof(client_address);
+                std::cout << "^^^^^^^^^^^^^^^^^^^^before accepting^^^^^^^^^^^^^^^^^^^^\n";
                 int connfd = accept(_sock_fd, (sockaddr*)&client_address, &client_address_ln);
+                std::cout << "^^^^^^^^^^^^^^^^^^^^after accepting: " << connfd << " ^^^^^^^^^^^^^^^^^^^^\n";
                 if (connfd < 0) {
                     BOOST_LOG_TRIVIAL(info) << "accept client failed: " << connfd << ", err: " << errno; 
                 } else {
