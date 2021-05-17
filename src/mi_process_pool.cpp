@@ -41,7 +41,7 @@ int ProcessPool::add_worker(int num) {
             BOOST_LOG_TRIVIAL(error) << "failed to create worker container.";
             return -1;
         } else if (0 == pid) {
-            BOOST_LOG_TRIVIAL(info) << "creating a new uds worker container.";    
+            //BOOST_LOG_TRIVIAL(info) << "creating a new uds worker container.";    
             const char * const argv[ ] = {
                 _worker_path.c_str(),
                 unix_path.c_str(), 
@@ -139,7 +139,7 @@ void ProcessPool::print_status() {
     }
 }
 
-int ProcessPool::clean() {
+void ProcessPool::clean() {
     for (auto it = _worker.begin(); it != _worker.end(); ++it) {
         kill(it->first, SIGKILL);
     }

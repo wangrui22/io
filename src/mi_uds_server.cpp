@@ -132,7 +132,7 @@ void UDSServer::run() {
     _client_fd = accept(_server_fd, (sockaddr*)(&client_addr), &client_addr_len);
 
     if (_client_fd < 0) {
-        BOOST_LOG_TRIVIAL(error) << "listen failed. fd: " << _server_fd  << " err: " << errno;
+        BOOST_LOG_TRIVIAL(error) << "bind failed. fd: " << _server_fd  << " err: " << errno;
         return;
     }
 

@@ -25,7 +25,7 @@ public:
 
     int check_valid();
 
-    int clean();
+    void clean();
 
     void print_status();
 

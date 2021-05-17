@@ -114,14 +114,14 @@ void UDSClient::run() {
     sockaddr_un server_addr;
     bzero(&server_addr, sizeof(server_addr));
     server_addr.sun_family = AF_UNIX;
-    for (int i=0; i<_path.length(); ++i) {
+    for (size_t i=0; i<_path.length(); ++i) {
         server_addr.sun_path[i] = _path[i];
     }
     socklen_t addr_len = sizeof(server_addr);
 
     if (_keep_connecting) {
         while (0 != connect(_fd, (sockaddr*)(&server_addr), addr_len)) {
-            BOOST_LOG_TRIVIAL(info) << "connecting " << _path;
+            //BOOST_LOG_TRIVIAL(info) << "connecting " << _path;
             sleep(1);
         }
     } else {
