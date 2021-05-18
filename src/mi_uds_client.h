@@ -4,6 +4,7 @@
 #include <string>
 #include <memory>
 #include <atomic>
+#include <vector>
 #include "mi_rpc_common.h"
 
 class UDSClient {
@@ -17,6 +18,7 @@ public:
     void register_recv_handler(std::shared_ptr<IPCDataRecvHandler> handler);
 
     int sync_send(const IPCDataHeader& header , char* buffer);
+    int sync_send_fd(const IPCDataHeader& header , char* buffer, std::vector<int> fds);
     
     void run();
     void stop();

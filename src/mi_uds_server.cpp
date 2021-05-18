@@ -125,7 +125,7 @@ void UDSServer::run() {
     //set nonblocking
     fcntl(_server_fd, F_SETFD, (fcntl(_server_fd, F_GETFL) | O_NONBLOCK));
 
-    BOOST_LOG_TRIVIAL(error) << "uds fd: " << _server_fd << " listen >>>>> ";
+    BOOST_LOG_TRIVIAL(info) << "uds fd: " << _server_fd << " listen >>>>> ";
 
     sockaddr_un client_addr;
     socklen_t client_addr_len = sizeof(client_addr);
@@ -271,11 +271,87 @@ void UDSServer::run() {
             }
         }
 
-        //MI_UTIL_LOG(MI_DEBUG) << "server " << _server_info << " recv package: {MsgID: " << header.msg_id << "; OpID: " << header.op_id << "}";
+        std::vector<int> fds;
+        const int protocol = header.reserved0;
+        if (protocol == PROTO_UPGRADE_SEND_FD) {
+            const int MAX_NUM_FD = 50;
+            int recv_fds[MAX_NUM_FD];
+
+            int fd_count = 0;
+            struct iovec iov = {
+                .iov_base = &fd_count,
+                .iov_len = sizeof(fd_count)
+            };
+            union
+            {
+                char buf[CMSG_SPACE(sizeof(recv_fds))];
+                struct cmsghdr align;
+            } u;
+            
+            msghdr msg;
+            bzero(&msg, sizeof(msg));
+            msg.msg_name = NULL;
+            msg.msg_namelen = 0;
+            msg.msg_iov = &iov;
+            msg.msg_iovlen = 1;
+            msg.msg_control = u.buf;
+            msg.msg_controllen = sizeof(u.buf);
+            cmsghdr *cmsg = CMSG_FIRSTHDR(&msg);
+            cmsg = CMSG_FIRSTHDR(&msg);
+            cmsg->cmsg_level = SOL_SOCKET;
+            cmsg->cmsg_type = SCM_RIGHTS;
+            cmsg->cmsg_len = CMSG_LEN(sizeof(recv_fds));
+
+            ssize_t msg_count = recvmsg(_client_fd, &msg, 0);
+
+            BOOST_LOG_TRIVIAL(info) << "recvmsg ret: " << msg_count << " fd count: " << fd_count;
+            
+            
+            if (msg_count == 0) {
+                BOOST_LOG_TRIVIAL(info) << "recvmsg client unix socket disconnect. " << "path: " << _path << ". " << _server_fd << "/" << _client_fd;
+                delete [] buffer;
+                buffer = nullptr;
+                //shutdown
+                if (_ev_disconnect) {
+                    _ev_disconnect->execute(_client_fd);
+                }
+                break;
+            }
+            if (msg_count < 0 && errno == ECONNRESET) {
+                //disconnect
+                BOOST_LOG_TRIVIAL(warning) << "recvmsg client unix socket disconnect. " << "path: " << _path << ". " << _server_fd << "/" << _client_fd <<  ". because server close the connect(recv a err: Connection reset by peer).";
+                //shutdown
+                if (_ev_disconnect) {
+                    _ev_disconnect->execute(_client_fd);
+                }
+                break;
+            }
+            
+            
+            //recv error
+            if (msg_count < 0) {
+                BOOST_LOG_TRIVIAL(error) << "recvmsg client unix socket recv failed. errno: " << errno;
+
+                delete [] buffer;
+                buffer = nullptr;
+                //shutdown
+                if (_ev_error) {
+                    _ev_error->execute(_client_fd);
+                }
+                break;  
+            }
+
+            int* recv_fd_array = (int *)CMSG_DATA(cmsg);
+            for (int i=0; i<fd_count; ++i) {
+                BOOST_LOG_TRIVIAL(info) << "recvmsg fd: " << recv_fd_array[i] ;
+                fds.push_back(recv_fd_array[i]);
+            }
+
+        }
 
         try {
             if (_handler) {
-                const int err = _handler->handle(header, buffer);
+                const int err = _handler->handle(header, buffer, fds);
                 if (err == QUIT_SIGNAL) {
                     break;
                 }

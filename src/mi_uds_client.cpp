@@ -99,6 +99,120 @@ int UDSClient::sync_send(const IPCDataHeader& header , char* buffer) {
     return 0;
 }
 
+int UDSClient::sync_send_fd(const IPCDataHeader& header0 , char* buffer, std::vector<int> fds) {
+    IPCDataHeader header = header0;
+    header.reserved0 = PROTO_UPGRADE_SEND_FD;
+    header.reserved1 = fds.size();
+
+    if (-1 == _fd) {
+        BOOST_LOG_TRIVIAL(error) << "client sync send failed. invalid fd.";
+        return -1;
+    }
+
+    if (header.data_len > 0 && !buffer) {
+        BOOST_LOG_TRIVIAL(error) << "client send null data failed with header data len: " << header.data_len;
+        return -1;
+    }
+
+    if (fds.empty()) {
+        BOOST_LOG_TRIVIAL(error) << "client send null fd";
+        return -1;
+    }
+
+    int err = 0;
+    int offset = 0;
+    int rest = (int)sizeof(header);
+    while (true) {
+        err = ::send(_fd , &header+offset , rest , MSG_NOSIGNAL);
+        if (err < 0 && errno == EINTR) {
+            continue;
+        } else if (err < 0) {
+            break;
+        } else {
+            offset += err;
+            rest -= err;
+            if (rest <= 0) {
+                break;
+            } else {
+                continue;
+            }
+        }
+    }
+    if (-1 == err) {
+        BOOST_LOG_TRIVIAL(error) << "client send data header failed with errno: " << errno;
+        return -1;
+    }
+
+    if (buffer != nullptr && header.data_len > 0) {
+        int offset = 0;
+        int rest = (int)header.data_len;
+        while (true) {
+            err = ::send(_fd , buffer+offset , rest , MSG_NOSIGNAL);
+            if (err < 0 && errno == EINTR) {
+                continue;
+            } else if (err < 0) {
+                break;
+            } else {
+                offset += err;
+                rest -= err;
+                if (rest <= 0) {
+                    break;
+                } else {
+                    continue;
+                }
+            }
+        }
+        if (-1 == err) {
+            BOOST_LOG_TRIVIAL(error) << "client send data failed with errno: " << errno;
+            return -1;
+        }
+    }
+
+
+    BOOST_LOG_TRIVIAL(debug) << "debug here <><><><><><><><><>";
+
+    //send fd 
+    int fd_count = (int)fds.size();
+    struct iovec iov = {
+        .iov_base = &fd_count,
+        .iov_len = sizeof(fd_count)
+    };
+    const size_t msg_controllen = CMSG_SPACE(sizeof(int)*fds.size());
+    char* msg_controll_buf = new char[msg_controllen];
+    
+    msghdr msg;
+    bzero(&msg, sizeof(msg));
+    msg.msg_name = NULL;
+    msg.msg_namelen = 0;
+    msg.msg_iov = &iov;
+    msg.msg_iovlen = 1;
+    msg.msg_control = msg_controll_buf;
+    msg.msg_controllen = msg_controllen;
+    cmsghdr *cmsg = CMSG_FIRSTHDR(&msg);
+    cmsg = CMSG_FIRSTHDR(&msg);
+    cmsg->cmsg_level = SOL_SOCKET;
+    cmsg->cmsg_type = SCM_RIGHTS;
+    cmsg->cmsg_len = CMSG_LEN(sizeof(int)*fds.size());
+    int* send_fds = (int*)CMSG_DATA(cmsg);
+    for (size_t i=0; i<fds.size(); ++i) {
+        send_fds[i] = fds[i];
+    }
+
+    err = sendmsg(_fd, &msg,0);
+    if (-1 ==  err) {
+        BOOST_LOG_TRIVIAL(error) << "send fd error: " << errno;
+        delete [] msg_controll_buf;
+        return -1;
+    }
+
+    delete [] msg_controll_buf;
+
+
+    BOOST_LOG_TRIVIAL(info) << "send fd done. fd count " << fds.size();
+
+    return 0;
+}
+
 void UDSClient::run() {
     if (_path.empty()) {
         BOOST_LOG_TRIVIAL(error) << "empty path";

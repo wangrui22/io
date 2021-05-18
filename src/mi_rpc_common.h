@@ -2,6 +2,7 @@
 #define MI_RPC_COMMON_H
 
 #include<boost/log/trivial.hpp>
+#include <vector>
 
 
 struct BufferHeader {
@@ -47,11 +48,15 @@ struct IPCDataHeader { //32 byte
     }
 };
 
+#define PROTO_UPGRADE_SEND_FD 0x10110001
 class IPCDataRecvHandler {
 public:
     IPCDataRecvHandler() {};
     virtual ~IPCDataRecvHandler() {};
-    virtual int handle(const IPCDataHeader& header , char* buffer) = 0;
+    virtual int handle(const IPCDataHeader& header , char* buffer) { return 0;};
+    virtual int handle(const IPCDataHeader& header , char* buffer, const std::vector<int>& ) {
+        return this->handle(header, buffer);
+    }
 protected:
 private:
 };

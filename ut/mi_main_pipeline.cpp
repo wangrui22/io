@@ -5,7 +5,11 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/mman.h>
+#include <sys/syscall.h>
+#include <sys/types.h>
+#include <linux/memfd.h>
 #include <fcntl.h>
+
 #include <iostream>
 #include <boost/thread/thread.hpp>
 #include <boost/log/trivial.hpp>
@@ -35,6 +39,39 @@ private:
     int _id;
 };
 
+class HandlerPipeline : public IPCDataRecvHandler {
+public:
+    HandlerPipeline() {};
+    virtual ~HandlerPipeline() {};
+    virtual int handle(const IPCDataHeader& header , char* buffer, const std::vector<int>& fds) {
+        if (buffer && header.data_len > 0) {
+            const std::string msg = std::string(buffer, header.data_len);
+            BOOST_LOG_TRIVIAL(info) << "pipeline recv msg: " << msg;
+
+
+            if (header.reserved0 == PROTO_UPGRADE_SEND_FD) {
+                for (size_t i=0; i<fds.size(); ++i) {
+                    const int fd = fds[i];
+                    int* recv_ptr = (int*)mmap(NULL, 16*sizeof(int), PROT_READ, MAP_SHARED, fd, 0);
+                    if (MAP_FAILED == recv_ptr) {
+                        BOOST_LOG_TRIVIAL(error) << "mmap failed";
+                        return -1;
+                    }
+                    BOOST_LOG_TRIVIAL(info) << "<><><><><><> pipeline recv fd: " << fds[i] << " shm value: " << recv_ptr[0];
+                }
+            }
+
+
+
+            if (msg == "quit") {
+                return QUIT_SIGNAL;
+            }
+        }
+        return 0;
+    }
+};
+
+
 }
 #define FILE_LENGTH 0x1000 
 
@@ -43,13 +80,23 @@ int main(int argc, char* argv[]) {
     BOOST_LOG_TRIVIAL(info) << "pipeline begin. count : " << pipe_count;
 
     const size_t len = 16*sizeof(int);
-    const int fd_shm = open("/tmp/shtest", O_RDWR);
-    if (fd_shm < 0) {
-        BOOST_LOG_TRIVIAL(error) << "open file failed.";
+
+    const int fd_shm = syscall(SYS_memfd_create,"pipeline", MFD_ALLOW_SEALING);
+    if (-1 == fd_shm) {
+        BOOST_LOG_TRIVIAL(error) << "create memfd failed.";
         return -1;
     }
+    
+
+    // const int fd_shm = open("/tmp/shtest", O_RDWR);
+    // if (fd_shm < 0) {
+    //     BOOST_LOG_TRIVIAL(error) << "open file failed.";
+    //     return -1;
+    // }
     lseek(fd_shm, FILE_LENGTH, SEEK_SET);
     write(fd_shm, " ", 1);
+
+
     int offset_shm = 0;
     int* ptr = (int*)mmap(NULL, len, PROT_READ|PROT_WRITE, MAP_SHARED, fd_shm, offset_shm);
     if (MAP_FAILED == ptr) {
@@ -70,7 +117,7 @@ int main(int argc, char* argv[]) {
         pid_t pid(-1);    
         process_pool->acquire_worker(pid, unix_path);
         std::shared_ptr<UDSServer> server(new UDSServer());
-        server->register_recv_handler(std::shared_ptr<IPCDataRecvHandler>(new HandlerPrint()));
+        server->register_recv_handler(std::shared_ptr<IPCDataRecvHandler>(new HandlerPipeline()));
         server->on_connect(std::shared_ptr<IEvent>(new EventEcho(server, fd_shm, i)));
         server->set_path(unix_path);
         server->run();
@@ -84,7 +131,7 @@ int main(int argc, char* argv[]) {
 
     sleep(5);
 
-    close(fd_shm);
+    //close(fd_shm);
     munmap(ptr, len);
 
     BOOST_LOG_TRIVIAL(info) << "clean pipeline worker done.";
@@ -92,3 +139,23 @@ int main(int argc, char* argv[]) {
 
     return 0;
 }
+
+
+// int create_shm(len, buffer, &fd);
+
+// job::send_sh_fd(fd, "name");
+
+// ais::sned_sh_fd() 
+
+// task_sm {
+//     std::map<name, (fd,len)> _shm;
+//     ~task_sm() {
+//         foreach() {
+//             unmap()
+//         }
+//     }
+// }
+
+
+// 1 [send_fd_op : name , fd]
+// 2 logic
